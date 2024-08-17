@@ -1,0 +1,57 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: "postgres:latest"
+    environment:
+      - "POSTGRES_DB=mydatabase"
+      - "POSTGRES_PASSWORD=secret"
+      - "POSTGRES_USER=myuser"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ecomhub_network
+
+  rabbitmq:
+    image: "rabbitmq:management"
+    environment:
+      - "RABBITMQ_DEFAULT_PASS=secret"
+      - "RABBITMQ_DEFAULT_USER=myuser"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - ecomhub_network
+
+  crawler-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - rabbitmq
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/mydatabase
+      - SPRING_DATASOURCE_USERNAME=myuser
+      - SPRING_DATASOURCE_PASSWORD=secret
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_JPA_SHOW_SQL=true
+      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=myuser
+      - SPRING_RABBITMQ_PASSWORD=secret
+    networks:
+      - ecomhub_network
+
+volumes:
+  postgres_data:
+
+networks:
+  ecomhub_network:
+    driver: bridge
