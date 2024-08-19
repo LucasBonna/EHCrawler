@@ -14,21 +14,25 @@ import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.util.List;
 
 @Setter
+@Service
 public class GNRE extends Crawler {
   private String siteKey;
   private WebDriver driver;
 
-  public GNRE(String url) {
-    super(url);
+  public GNRE() {
+    super();
   }
 
-  public void setup() {
+  public void setup(String url) {
     FirefoxOptions options = new FirefoxOptions();
     options.addArguments("--headless");
     options.addArguments(
@@ -46,16 +50,40 @@ public class GNRE extends Crawler {
     options.addPreference("browser.helperApps.neverAsk.saveToDisk", "application/pdf");
     options.addPreference("pdfjs.disabled", true);
 
+    this.url = url;
+
     this.driver = new FirefoxDriver(options);
   }
 
-  public File GNREReceipt(String barcode, StateEnum uf) throws CrawlerException {
+  public File GNREGenerate() throws CrawlerException {
+    System.out.println("comecou crawler");
+
+      try {
+          setup("https://www.gnre.pe.gov.br:444/gnre/v/guia/index");
+          this.driver.get(this.url);
+          System.out.println(this.driver.getTitle());
+
+          return null;
+      } finally {
+        if (this.driver != null) {
+          try {
+            this.driver.quit();
+            System.out.println("Driver fechado com sucesso.");
+          } catch (Exception e) {
+            throw new CrawlerException("Erro ao fechar driver", e);
+          }
+        }
+      }
+  }
+
+  public File GNREReceipt(String barcode, StateEnum uf, File sessionDir) throws CrawlerException {
     String userHome = System.getProperty("user.home");
     System.out.println("comecou crawler");
     File downloadedFile = null;
 
     try {
-      this.driver.get("https://www.gnre.pe.gov.br:444/gnre/v/guia/consultar");
+      setup("https://www.gnre.pe.gov.br:444/gnre/v/guia/consultar");
+      this.driver.get(this.url);
       String title = this.driver.getTitle();
       System.out.println(title);
 
@@ -112,20 +140,17 @@ public class GNRE extends Crawler {
       WebElement printButton = this.driver.findElement(By.id("btnImprimir"));
       printButton.click();
       System.out.println("Baixando");
-      Thread.sleep(10000);
 
-      File downloadDir = new File("/tmp/downloads");
-      File[] files = downloadDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".pdf"));
+      downloadedFile = waitForDownload(sessionDir);
 
-      if (files != null && files.length > 0) {
-        downloadedFile = files[0];
-        System.out.println("Arquivo baixado: " + downloadedFile.getAbsolutePath());
-      } else {
-        throw new CrawlerException("Arquivo PDF não encontrado após download");
+      if (downloadedFile == null) {
+        throw new CrawlerException("Arquivo PDF não encontrado até download");
       }
+
+      System.out.println("Arquivo baixado: " + downloadedFile.getAbsolutePath());
       return downloadedFile;
     } catch (Exception e) {
-      throw new CrawlerException("Erro ao rodar crawler", e);
+      throw new CrawlerException("Erro ao rodar crawler" + e);
     } finally {
       if (this.driver != null) {
         try {
@@ -136,5 +161,38 @@ public class GNRE extends Crawler {
         }
       }
     }
+  }
+
+  private File waitForDownload(File sessionDir) throws InterruptedException, CrawlerException, IOException {
+    int retryCount = 10;
+    File downloadDir = new File("/tmp/downloads");
+    File downloadedFile = null;
+
+    while (retryCount-- > 0) {
+      File[] files = downloadDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".pdf"));
+      if (files != null && files.length > 0) {
+        downloadedFile = getMostRecentlyDownloadedFile(files);
+
+        if (downloadedFile != null) {
+          File destFile = new File(sessionDir, downloadedFile.getName());
+          Files.move(downloadedFile.toPath(), destFile.toPath());
+          downloadedFile = destFile;
+        }
+        break;
+      }
+      Thread.sleep(1000);
+    }
+
+    return downloadedFile;
+  }
+
+  private File getMostRecentlyDownloadedFile(File[] files) {
+    File latestFile = files[0];
+    for (File file : files) {
+      if (file.lastModified() > latestFile.lastModified()) {
+        latestFile = file;
+      }
+    }
+    return latestFile;
   }
 }
