@@ -1,9 +1,11 @@
 package br.com.ecomhub.crawler.EcomHubCrawler.services;
 
+import br.com.ecomhub.crawler.EcomHubCrawler.DTOs.GNREGenerateDTO;
 import br.com.ecomhub.crawler.EcomHubCrawler.DTOs.GNREReceiptDTO;
 import br.com.ecomhub.crawler.EcomHubCrawler.crawlers.GNRE;
 import br.com.ecomhub.crawler.EcomHubCrawler.exceptions.CrawlerException;
 import br.com.ecomhub.crawler.EcomHubCrawler.exceptions.PDFException;
+import br.com.ecomhub.crawler.EcomHubCrawler.schemas.GNREGenerateSchema;
 import br.com.ecomhub.crawler.EcomHubCrawler.schemas.GNREReceiptSchema;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,9 +35,35 @@ public class GNREService {
     public GNRE gnreCrawler = new GNRE();
     public PDFService pdfService = new PDFService();
 
-    public ResponseEntity<byte[]> teste() throws CrawlerException {
-        this.gnreCrawler.GNREGenerate();
-        return new ResponseEntity<>(HttpStatus.OK);
+    public File getGNREDocument(GNREGenerateSchema data, File sessionDir) throws CrawlerException, PDFException {
+        System.out.println("Entrou getGNRE");
+        try {
+            List<GNREGenerateDTO> infos = new ArrayList<>();
+            List<File> downloadedFiles = new ArrayList<>();
+
+            for (MultipartFile file : data.files()) {
+                System.out.println("file: " + file.getOriginalFilename());
+                File convertedFile = convertMultipartToFile(file, sessionDir);
+                List<GNREGenerateDTO> dtos = this.pdfService.getGenerateInfo(convertedFile);
+                infos.addAll(dtos);
+            }
+            System.out.println("converteu dto");
+
+            for (GNREGenerateDTO dto : infos) {
+                File downloadedFile = gnreCrawler.GNREGenerate(dto, sessionDir);
+                if (downloadedFile != null && downloadedFile.exists()) {
+                    downloadedFiles.add(downloadedFile);
+                }
+            }
+
+            if (downloadedFiles.isEmpty()) {
+                throw new CrawlerException("Erro ao criar arquivo ZIP");
+            }
+
+            return createZipFile(downloadedFiles, sessionDir);
+        } catch (IOException e) {
+            throw new CrawlerException("Erro ao rodar crawler");
+        }
     }
 
     public File getGNREReceipt(GNREReceiptSchema data, File sessionDir) throws CrawlerException, PDFException {
@@ -43,7 +71,7 @@ public class GNREService {
 
         for (MultipartFile file : data.files()) {
             File convertedFile = convertMultipartToFile(file, sessionDir);
-            GNREReceiptDTO dto = pdfService.getInfo(convertedFile, data.gnreType());
+            GNREReceiptDTO dto = pdfService.getReceiptInfo(convertedFile, data.gnreType());
             if (dto == null) {
                 throw new PDFException("Erro ao extrair dados do PDF");
             }
@@ -71,6 +99,7 @@ public class GNREService {
     private File convertMultipartToFile(MultipartFile multipartFile, File sessionDir) throws CrawlerException {
         try {
             File tempFile = new File(sessionDir, multipartFile.getOriginalFilename());
+            System.out.println("chegou aq");
             multipartFile.transferTo(tempFile);
             return tempFile;
         } catch (IOException e) {

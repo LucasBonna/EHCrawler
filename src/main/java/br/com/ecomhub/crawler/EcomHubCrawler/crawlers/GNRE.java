@@ -1,8 +1,10 @@
 package br.com.ecomhub.crawler.EcomHubCrawler.crawlers;
 
+import br.com.ecomhub.crawler.EcomHubCrawler.DTOs.GNREGenerateDTO;
 import br.com.ecomhub.crawler.EcomHubCrawler.enums.StateEnum;
 import br.com.ecomhub.crawler.EcomHubCrawler.exceptions.CrawlerException;
 import br.com.ecomhub.crawler.EcomHubCrawler.helpers.StateMapper;
+import br.com.ecomhub.crawler.EcomHubCrawler.schemas.GNREGenerateSchema;
 import br.com.ecomhub.crawler.EcomHubCrawler.solvers.CapMonster;
 import lombok.Setter;
 import org.openqa.selenium.By;
@@ -14,6 +16,7 @@ import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -31,6 +34,8 @@ public class GNRE extends Crawler {
   public GNRE() {
     super();
   }
+
+  CapMonster solver = new CapMonster("1e1499f81b741286a40251c6c2fff325");
 
   public void setup(String url) {
     FirefoxOptions options = new FirefoxOptions();
@@ -55,15 +60,88 @@ public class GNRE extends Crawler {
     this.driver = new FirefoxDriver(options);
   }
 
-  public File GNREGenerate() throws CrawlerException {
+  public File GNREGenerate(GNREGenerateDTO dto, File sessionDir) throws CrawlerException {
+    String userHome = System.getProperty("user.home");
     System.out.println("comecou crawler");
+    File downloadedFile = null;
 
       try {
-          setup("https://www.gnre.pe.gov.br:444/gnre/v/guia/index");
-          this.driver.get(this.url);
-          System.out.println(this.driver.getTitle());
+        setup("https://www.gnre.pe.gov.br:444/gnre/v/guia/index");
 
-          return null;
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30));
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("ufFavorecida")));
+
+        WebElement ufMenu = driver.findElement(By.id("ufFavorecida"));
+        Select uf = new Select(ufMenu);
+        uf.selectByValue(String.valueOf(dto.uf()));
+
+        WebElement gnreSimplesButton = driver.findElement(By.id("optGnreSimples"));
+        gnreSimplesButton.click();
+
+        WebElement notFavoredUFButton = driver.findElement(By.id("optNaoInscrito"));
+        notFavoredUFButton.click();
+
+        WebElement cnpjButton = driver.findElement(By.id("tipoCNPJ"));
+        cnpjButton.click();
+
+        WebElement cpfCpnjInput = driver.findElement(By.id("documentoEmitente"));
+        cpfCpnjInput.sendKeys("33.646.299/0001-05");
+
+        WebElement razaoInput = driver.findElement(By.id("razaoSocialEmitente"));
+        razaoInput.sendKeys("Df Freires Sistema de Audio e Video");
+
+        WebElement enderecoInput = driver.findElement(By.id("enderecoEmitente"));
+        enderecoInput.sendKeys("Rua dos Emboabas, 25, Jardim Guerreiro");
+
+        WebElement ufEmitMenu = driver.findElement(By.id("ufEmitente"));
+        Select ufEmit = new Select(ufEmitMenu);
+        ufEmit.selectByValue("SP");
+
+        WebElement municipioMenu = driver.findElement(By.id("municipioEmitente"));
+        Select municipio = new Select(municipioMenu);
+        municipio.selectByVisibleText("COTIA");
+
+        WebElement cepInput = driver.findElement(By.id("cepEmitente"));
+        cepInput.sendKeys("06.710-520");
+
+        WebElement phoneInput = driver.findElement(By.id("cepEmitente"));
+        phoneInput.sendKeys("(11) 99167-6618");
+
+        WebElement receitaMenu = driver.findElement(By.id("receita"));
+        Select receita = new Select(receitaMenu);
+        receita.selectByValue("100102");
+
+        WebElement docOrigemMenu = driver.findElement(By.id("tipoDocOrigem"));
+        Select docOrigem = new Select(docOrigemMenu);
+        docOrigem.selectByIndex(1);;
+
+        WebElement numDocOrigemInput = driver.findElement(By.id("numeroDocumentoOrigem"));
+        numDocOrigemInput.sendKeys("35240833646299000105550010000083271851541881");
+
+        WebElement dataVencInput = driver.findElement(By.id("dataVencimento"));
+        dataVencInput.sendKeys("21/08/2024");
+
+        WebElement valorInput = driver.findElement(By.id("valor"));
+        valorInput.sendKeys(dto.preco());
+
+        WebElement validarButton = driver.findElement(By.id("validar"));
+        validarButton.click();
+
+        wait.until(ExpectedConditions.elementToBeClickable(By.id("baixar")));
+
+        WebElement baixarButton = driver.findElement(By.id("baixar"));
+        baixarButton.click();
+
+        downloadedFile = waitForDownload(sessionDir);
+
+        if (downloadedFile == null) {
+          throw new CrawlerException("Arquivo PDF não encontrado até download");
+        }
+
+        System.out.println("Arquivo baixado: " + downloadedFile.getAbsolutePath());
+        return downloadedFile;
+      } catch (Exception e) {
+        throw new CrawlerException("Erro ao rodar crawler" + e);
       } finally {
         if (this.driver != null) {
           try {
@@ -108,11 +186,10 @@ public class GNRE extends Crawler {
       WebElement recaptch = this.driver.findElement(By.className("g-recaptcha"));
       String siteKey = recaptch.getAttribute("data-sitekey");
 
-      CapMonster solver = new CapMonster("1e1499f81b741286a40251c6c2fff325");
-      solver.setWebsiteKey(siteKey);
-      solver.setWebsiteURL(this.driver.getCurrentUrl());
-      solver.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36");
-      String gRecaptchaResponse = solver.solveRecaptchaV2();
+      this.solver.setWebsiteKey(siteKey);
+      this.solver.setWebsiteURL(this.driver.getCurrentUrl());
+      this.solver.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36");
+      String gRecaptchaResponse = this.solver.solveRecaptchaV2();
       System.out.println("solved: " + gRecaptchaResponse);
 
       if (gRecaptchaResponse == null) {
