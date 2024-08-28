@@ -1,10 +1,11 @@
-package br.com.ecomhub.crawler.EcomHubCrawler.crawlers;
+package br.com.ecomhub.crawler.EcomHubCrawler.crawlers.gnres;
 
-import br.com.ecomhub.crawler.EcomHubCrawler.DTOs.GNREGenerateDTO;
+import br.com.ecomhub.crawler.EcomHubCrawler.crawlers.Crawler;
+import br.com.ecomhub.crawler.EcomHubCrawler.entities.GNREGenerateEntity;
 import br.com.ecomhub.crawler.EcomHubCrawler.enums.StateEnum;
 import br.com.ecomhub.crawler.EcomHubCrawler.exceptions.CrawlerException;
+import br.com.ecomhub.crawler.EcomHubCrawler.helpers.Helpers;
 import br.com.ecomhub.crawler.EcomHubCrawler.helpers.StateMapper;
-import br.com.ecomhub.crawler.EcomHubCrawler.schemas.GNREGenerateSchema;
 import br.com.ecomhub.crawler.EcomHubCrawler.solvers.CapMonster;
 import lombok.Setter;
 import org.openqa.selenium.By;
@@ -31,15 +32,20 @@ public class GNRE extends Crawler {
   private String siteKey;
   private WebDriver driver;
 
-  public GNRE() {
-    super();
-  }
+  private final CapMonster solver;
+  private final Helpers helpers;
+  private final GNREGenerateStates generateStates;
 
-  CapMonster solver = new CapMonster("1e1499f81b741286a40251c6c2fff325");
+  @Autowired
+  public GNRE(final CapMonster solver, final Helpers helpers, final GNREGenerateStates generateStates) {
+    this.solver = solver;
+    this.helpers = helpers;
+    this.generateStates = generateStates;
+  }
 
   public void setup(String url) {
     FirefoxOptions options = new FirefoxOptions();
-    options.addArguments("--headless");
+//    options.addArguments("--headless");
     options.addArguments(
             "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36");
     options.addArguments("--width=1920");
@@ -60,76 +66,124 @@ public class GNRE extends Crawler {
     this.driver = new FirefoxDriver(options);
   }
 
-  public File GNREGenerate(GNREGenerateDTO dto, File sessionDir) throws CrawlerException {
-    String userHome = System.getProperty("user.home");
+  public File GNREGenerate(GNREGenerateEntity gnreGenerateEntity, File sessionDir) throws CrawlerException {
     System.out.println("comecou crawler");
     File downloadedFile = null;
 
       try {
         setup("https://www.gnre.pe.gov.br:444/gnre/v/guia/index");
+        this.driver.get(this.url);
+        String title = this.driver.getTitle();
+        System.out.println(title);
 
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30));
+        WebDriverWait wait = new WebDriverWait(this.driver, Duration.ofSeconds(30));
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("ufFavorecida")));
 
-        WebElement ufMenu = driver.findElement(By.id("ufFavorecida"));
+        WebElement ufMenu = this.driver.findElement(By.id("ufFavorecida"));
         Select uf = new Select(ufMenu);
-        uf.selectByValue(String.valueOf(dto.uf()));
+        uf.selectByValue(String.valueOf(gnreGenerateEntity.getDestUF()));
 
-        WebElement gnreSimplesButton = driver.findElement(By.id("optGnreSimples"));
+        WebElement gnreSimplesButton = this.driver.findElement(By.id("optGnreSimples"));
         gnreSimplesButton.click();
 
-        WebElement notFavoredUFButton = driver.findElement(By.id("optNaoInscrito"));
+        WebElement notFavoredUFButton = this.driver.findElement(By.id("optNaoInscrito"));
         notFavoredUFButton.click();
 
-        WebElement cnpjButton = driver.findElement(By.id("tipoCNPJ"));
+        WebElement cnpjButton = this.driver.findElement(By.id("tipoCNPJ"));
         cnpjButton.click();
 
-        WebElement cpfCpnjInput = driver.findElement(By.id("documentoEmitente"));
-        cpfCpnjInput.sendKeys("33.646.299/0001-05");
+        WebElement cpfCpnjInput = this.driver.findElement(By.id("documentoEmitente"));
+        cpfCpnjInput.sendKeys(gnreGenerateEntity.getEmitCNPJ());
 
-        WebElement razaoInput = driver.findElement(By.id("razaoSocialEmitente"));
-        razaoInput.sendKeys("Df Freires Sistema de Audio e Video");
+        WebElement razaoInput = this.driver.findElement(By.id("razaoSocialEmitente"));
+        razaoInput.sendKeys(gnreGenerateEntity.getEmitRazao());
 
-        WebElement enderecoInput = driver.findElement(By.id("enderecoEmitente"));
+        WebElement enderecoInput = this.driver.findElement(By.id("enderecoEmitente"));
         enderecoInput.sendKeys("Rua dos Emboabas, 25, Jardim Guerreiro");
 
-        WebElement ufEmitMenu = driver.findElement(By.id("ufEmitente"));
+        WebElement ufEmitMenu = this.driver.findElement(By.id("ufEmitente"));
         Select ufEmit = new Select(ufEmitMenu);
         ufEmit.selectByValue("SP");
 
-        WebElement municipioMenu = driver.findElement(By.id("municipioEmitente"));
+        WebElement municipioMenu = this.driver.findElement(By.id("municipioEmitente"));
         Select municipio = new Select(municipioMenu);
         municipio.selectByVisibleText("COTIA");
 
-        WebElement cepInput = driver.findElement(By.id("cepEmitente"));
+        WebElement cepInput = this.driver.findElement(By.id("cepEmitente"));
         cepInput.sendKeys("06.710-520");
 
-        WebElement phoneInput = driver.findElement(By.id("cepEmitente"));
+        WebElement phoneInput = this.driver.findElement(By.id("cepEmitente"));
         phoneInput.sendKeys("(11) 99167-6618");
 
-        WebElement receitaMenu = driver.findElement(By.id("receita"));
+        WebElement receitaMenu = this.driver.findElement(By.id("receita"));
         Select receita = new Select(receitaMenu);
         receita.selectByValue("100102");
 
-        WebElement docOrigemMenu = driver.findElement(By.id("tipoDocOrigem"));
-        Select docOrigem = new Select(docOrigemMenu);
-        docOrigem.selectByIndex(1);;
+//        WebElement docOrigemMenu = this.driver.findElement(By.id("tipoDocOrigem"));
+//        Select docOrigem = new Select(docOrigemMenu);
+//        docOrigem.selectByIndex(1);;
+//
+//        WebElement numDocOrigemInput = this.driver.findElement(By.id("numeroDocumentoOrigem"));
+//        numDocOrigemInput.sendKeys(gnreGenerateEntity.getChaveNota());
 
-        WebElement numDocOrigemInput = driver.findElement(By.id("numeroDocumentoOrigem"));
-        numDocOrigemInput.sendKeys("35240833646299000105550010000083271851541881");
+        if (gnreGenerateEntity.getDestUF() == StateEnum.AC || gnreGenerateEntity.getDestUF() == StateEnum.AL) {
+          generateStates.generateAcAl(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.AM || gnreGenerateEntity.getDestUF() == StateEnum.AP) {
+          generateStates.generateAmAp(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.BA) {
+          generateStates.generateBA(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.CE) {
+          generateStates.generateCE(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.DF) {
+          generateStates.generateDF(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.GO) {
+          generateStates.generateGO(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.MA) {
+          generateStates.generateMA(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.MS) {
+          generateStates.generateMS(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.MT) {
+          generateStates.generateMT(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.PA) {
+          generateStates.generatePA(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.PB) {
+          generateStates.generatePB(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.PE) {
+          generateStates.generatePE(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.PI) {
+          generateStates.generatePI(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.RN) {
+          generateStates.generateRN(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.RO) {
+          generateStates.generateRO(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.RR) {
+          generateStates.generateRR(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.SC) {
+          generateStates.generateSC(this.driver, gnreGenerateEntity);
+        } else if (gnreGenerateEntity.getDestUF() == StateEnum.SE || gnreGenerateEntity.getDestUF() == StateEnum.TO) {
+          generateStates.generateSeTo(this.driver, gnreGenerateEntity);
+        }
 
-        WebElement dataVencInput = driver.findElement(By.id("dataVencimento"));
-        dataVencInput.sendKeys("21/08/2024");
+        this.solver.setWebsiteKey("6LfvrIEaAAAAAJ7xrn1d7KvsMF_a27D2l8WsWFQk");
+        this.solver.setWebsiteURL(this.driver.getCurrentUrl());
+        this.solver.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36");
+        String gRecaptchaResponse = this.solver.solveRecaptchaV2();
+        System.out.println("solved: " + gRecaptchaResponse);
 
-        WebElement valorInput = driver.findElement(By.id("valor"));
-        valorInput.sendKeys(dto.preco());
+        if (gRecaptchaResponse == null) {
+          throw new CrawlerException("Recaptcha failed");
+        }
 
-        WebElement validarButton = driver.findElement(By.id("validar"));
-        validarButton.click();
+        System.out.println("Insere o token");
+        JavascriptExecutor js = (JavascriptExecutor) this.driver;
+        js.executeScript("document.getElementById('g-recaptcha-response').innerHTML = arguments[0];", gRecaptchaResponse);
+
+        System.out.println("clicando...");
+        js.executeScript("onSubmit()");
 
         wait.until(ExpectedConditions.elementToBeClickable(By.id("baixar")));
 
-        WebElement baixarButton = driver.findElement(By.id("baixar"));
+        WebElement baixarButton = this.driver.findElement(By.id("baixar"));
         baixarButton.click();
 
         downloadedFile = waitForDownload(sessionDir);
@@ -155,7 +209,6 @@ public class GNRE extends Crawler {
   }
 
   public File GNREReceipt(String barcode, StateEnum uf, File sessionDir) throws CrawlerException {
-    String userHome = System.getProperty("user.home");
     System.out.println("comecou crawler");
     File downloadedFile = null;
 
@@ -239,6 +292,8 @@ public class GNRE extends Crawler {
       }
     }
   }
+
+
 
   private File waitForDownload(File sessionDir) throws InterruptedException, CrawlerException, IOException {
     int retryCount = 10;

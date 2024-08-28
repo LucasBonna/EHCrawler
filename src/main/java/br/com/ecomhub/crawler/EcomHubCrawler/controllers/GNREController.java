@@ -1,15 +1,15 @@
 package br.com.ecomhub.crawler.EcomHubCrawler.controllers;
 
-import br.com.ecomhub.crawler.EcomHubCrawler.DTOs.GNREGenerateDTO;
-import br.com.ecomhub.crawler.EcomHubCrawler.enums.GNREEnum;
+import br.com.ecomhub.crawler.EcomHubCrawler.entities.GNREGenerateEntity;
 import br.com.ecomhub.crawler.EcomHubCrawler.exceptions.CrawlerException;
 import br.com.ecomhub.crawler.EcomHubCrawler.exceptions.PDFException;
+import br.com.ecomhub.crawler.EcomHubCrawler.exceptions.XMLException;
+import br.com.ecomhub.crawler.EcomHubCrawler.helpers.Helpers;
 import br.com.ecomhub.crawler.EcomHubCrawler.schemas.GNREGenerateSchema;
 import br.com.ecomhub.crawler.EcomHubCrawler.schemas.GNREReceiptSchema;
 import br.com.ecomhub.crawler.EcomHubCrawler.services.GNREService;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import org.apache.commons.lang3.ObjectUtils;
+import br.com.ecomhub.crawler.EcomHubCrawler.services.XMLService;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
@@ -17,30 +17,26 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import br.com.ecomhub.crawler.EcomHubCrawler.DTOs.GNREReceiptDTO;
-import br.com.ecomhub.crawler.EcomHubCrawler.crawlers.GNRE;
 import jakarta.validation.Valid;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/gnre")
+@RequestMapping("/ehcrawler/gnre")
 public class GNREController {
+  private final GNREService gnreService;
+  private final XMLService xmlService;
+  private final Helpers helpers;
 
   @Autowired
-  private GNREService gnreService;
-
-  @GetMapping("/")
-  public ResponseEntity<Map<String, String>> getStatus() {
-    Map<String, String> response = Collections.singletonMap("application", "UP");
-    return ResponseEntity.ok(response);
+  public GNREController(final GNREService gnreService, final XMLService xmlService, final Helpers helpers) {
+    this.gnreService = gnreService;
+    this.xmlService = xmlService;
+    this.helpers = helpers;
   }
 
   @PostMapping(value = "/generate", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
@@ -97,5 +93,17 @@ public class GNREController {
     } finally {
       gnreService.cleanUpDirectory(sessionDir);
     }
+  }
+
+  @PostMapping(value = "/testeXML", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
+  public ResponseEntity<GNREGenerateEntity> testXML(@NotNull @Valid MultipartFile file) throws XMLException, CrawlerException {
+    File sessionDir = new File("/tmp/downloads/session-" + UUID.randomUUID());
+    if (!sessionDir.mkdirs()) {
+      throw new XMLException("Não foi possível criar o diretório da sessão.");
+    }
+
+    File convertedFile = helpers.convertMultipartToFile(file, sessionDir);
+    GNREGenerateEntity data = xmlService.extractXMLNFeData(convertedFile);
+    return new ResponseEntity<>(data, HttpStatus.OK);
   }
 }

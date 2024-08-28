@@ -15,21 +15,12 @@ import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 
 @Service
 @Setter
 public class PDFService {
-    private File pdf;
-
-    public PDFService() {
-
-    }
-
-    public PDFService(File pdf) {
-        this.pdf = pdf;
-    }
-
     public GNREReceiptDTO getReceiptInfo(File file, GNREEnum gnreType) throws PDFException {
         try {
             PDDocument pdf = PDDocument.load(file);
@@ -53,15 +44,23 @@ public class PDFService {
 
             PDDocument pdf = PDDocument.load(file);
             int numPages = pdf.getNumberOfPages();
+            System.out.println("numPages: " + numPages);
 
             for (int i = 0; i < numPages; i++) {
-                GNREGenerateDTO dto = extractGNREGenInfo(pdf);
-                if (!dto.uf().equals(StateEnum.SP)) {
+                GNREGenerateDTO dto = extractGNREGenInfo(pdf, i);
+                System.out.println("dto" + dto);
+                EnumSet<StateEnum> excludeStates = EnumSet.of(StateEnum.SP, StateEnum.RJ, StateEnum.RS, StateEnum.PR, StateEnum.MG);
+                if (!excludeStates.contains(dto.uf())) {
                     gnreGenerateDTOs.add(dto);
                 }
             }
 
+            if (gnreGenerateDTOs.isEmpty()) {
+                System.out.println("caiu error");
+                throw new PDFException("Erro ao extrair informações do PDF");
+            }
 
+            System.out.println("gnreGenerateDTOs" + gnreGenerateDTOs);
             return gnreGenerateDTOs;
         } catch (IOException e) {
             throw new PDFException("Erro extraindo informacoes do PDF");
@@ -98,11 +97,13 @@ public class PDFService {
         }
     }
 
-    private GNREGenerateDTO extractGNREGenInfo(PDDocument doc) throws PDFException, IOException {
-        try (doc) {
+    private GNREGenerateDTO extractGNREGenInfo(PDDocument doc, int pageIndex) throws PDFException{
+        try {
             PDFTextStripperByArea stripper = getPdfTextStripperByArea();
 
-            stripper.extractRegions(doc.getPage(0));
+            System.out.println("pageIndex: " + pageIndex);
+
+            stripper.extractRegions(doc.getPage(pageIndex));
 
             String barcode = stripper.getTextForRegion("barcode").trim().replaceAll("\\s+", "");
             String uf = stripper.getTextForRegion("uf").trim();
@@ -113,7 +114,10 @@ public class PDFService {
             String destRazao = stripper.getTextForRegion("destRazao").trim();
             String destMun = stripper.getTextForRegion("destMun").trim();
 
+            System.out.println("data" + barcode + uf + num + preco + destCNPJ + destCEP + destRazao + destMun);
             StateEnum ufEnum = StateEnum.valueOf(uf);
+
+            System.out.println(barcode);
 
             return new GNREGenerateDTO(barcode, ufEnum, num, preco, destCNPJ, destCEP, destRazao, destMun);
         } catch (IOException e) {
@@ -128,7 +132,7 @@ public class PDFService {
         Rectangle barcodeArea = new Rectangle(340, 144, 210, 11);
         Rectangle numNFArea = new Rectangle(520, 45, 40, 17);
         Rectangle precoNFArea = new Rectangle(310, 470, 30, 10);
-        Rectangle ufArea = new Rectangle(290, 290, 15, 10);
+        Rectangle ufArea = new Rectangle(250, 290, 100, 10);
         Rectangle destCNPJArea = new Rectangle(290, 252, 100, 12);
         Rectangle destCEPArea = new Rectangle(405, 270, 60, 12);
         Rectangle destRazaoArea = new Rectangle(30, 252, 180, 12);

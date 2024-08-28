@@ -7,7 +7,6 @@ public class Crawler {
     protected String url;
 
     public Crawler() {
-        this(null);
     }
 
     public Crawler(String url) {

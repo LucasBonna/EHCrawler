@@ -3,19 +3,20 @@ package br.com.ecomhub.crawler.EcomHubCrawler.controllers;
 import io.swagger.v3.oas.annotations.Hidden;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 
 @RestController
+@RequestMapping("/ehcrawler")
 public class DefaultController {
 
     @GetMapping("/")
     public ResponseEntity<Map<String, String>> getStatus() {
-        Map<String, String> response = Collections.singletonMap("application", "UP");
-        return ResponseEntity.ok(response);
+        Map<String, String> status = Collections.singletonMap("application", "crawler-up");
+        return ResponseEntity.ok(status);
     }
 
     @GetMapping("/docs")
@@ -37,7 +38,7 @@ public class DefaultController {
                 </style>
               </head>
               <body>
-                <redoc spec-url="http://localhost:8080/api-docs"></redoc>
+                <redoc spec-url="http://localhost:8001/api-docs"></redoc>
                 <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
               </body>
             </html>
