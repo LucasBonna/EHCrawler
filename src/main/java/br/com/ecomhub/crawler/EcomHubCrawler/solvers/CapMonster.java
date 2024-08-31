@@ -3,6 +3,8 @@ package br.com.ecomhub.crawler.EcomHubCrawler.solvers;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Setter;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -12,6 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Setter
+@Component
 public class CapMonster {
     private final String apiKey;
     private String websiteKey;
@@ -20,8 +23,8 @@ public class CapMonster {
     private final ObjectMapper mapper = new ObjectMapper();
     private final HttpClient client = HttpClient.newHttpClient();
 
-    public CapMonster(String api_key){
-        this.apiKey = api_key;
+    public CapMonster(@Value("${capmonster.api.key}") String apiKey) {
+        this.apiKey = apiKey;
     }
 
     public String solveRecaptchaV2() throws Exception {

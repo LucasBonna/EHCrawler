@@ -8,11 +8,11 @@ services:
       - "POSTGRES_PASSWORD=secret"
       - "POSTGRES_USER=myuser"
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - ecomhub_network
+      - ecomhub_services_network
 
   rabbitmq:
     image: "rabbitmq:management"
@@ -20,10 +20,10 @@ services:
       - "RABBITMQ_DEFAULT_PASS=secret"
       - "RABBITMQ_DEFAULT_USER=myuser"
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "5673:5672"
+      - "15673:15672"
     networks:
-      - ecomhub_network
+      - ecomhub_services_network
 
   crawler-api:
     build:
@@ -31,7 +31,7 @@ services:
       dockerfile: Dockerfile
     platform: linux/amd64
     ports:
-      - "8080:8080"
+      - "8001:8001"
     depends_on:
       - postgres
       - rabbitmq
@@ -46,12 +46,15 @@ services:
       - SPRING_RABBITMQ_PORT=5672
       - SPRING_RABBITMQ_USERNAME=myuser
       - SPRING_RABBITMQ_PASSWORD=secret
+    volumes:
+      - .:/app
+      - ~/.m2:/root/.m2
     networks:
-      - ecomhub_network
+      - ecomhub_services_network
 
 volumes:
   postgres_data:
 
 networks:
-  ecomhub_network:
-    driver: bridge
+  ecomhub_services_network:
+    external: true
