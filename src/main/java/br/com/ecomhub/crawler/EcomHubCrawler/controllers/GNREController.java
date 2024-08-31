@@ -27,6 +27,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/ehcrawler/gnre")
+@CrossOrigin(origins = "*")
 public class GNREController {
   private final GNREService gnreService;
   private final XMLService xmlService;
